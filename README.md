@@ -1,0 +1,2 @@
+# stockfurgo
+stock app
