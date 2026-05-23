@@ -1,0 +1,2842 @@
+<!DOCTYPE html>
+<!-- saved from url=(0056)file:///C:/Users/SKU/Downloads/stock-furgoneta-v2_3.html -->
+<html lang="es"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0d1117">
+  <!--<base href="/">--><base href=".">
+  <title>Stock Furgoneta</title>
+  <style>
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    body{margin:0;padding:0;background:#0d1117;font-family:system-ui,sans-serif}
+    input,button,select{font-family:inherit}
+    ::-webkit-scrollbar{width:3px}
+    ::-webkit-scrollbar-thumb{background:#30363d;border-radius:2px}
+    input[type=date]::-webkit-calendar-picker-indicator{filter:invert(1);opacity:0.5}
+  </style>
+</head>
+<body>
+<div id="root"><div style="min-height: 100vh; background: rgb(13, 17, 23); display: flex; align-items: center; justify-content: center; padding: 20px;"><div style="width: 100%; max-width: 380px;"><div style="text-align: center; margin-bottom: 32px;"><div style="font-size: 48px; margin-bottom: 8px;">📦</div><div style="font-size: 24px; font-weight: 800; color: rgb(230, 237, 243); letter-spacing: -0.03em;">Stock Furgoneta</div><div style="font-size: 13px; color: rgb(139, 148, 158); margin-top: 4px;">Gestión de material para técnicos</div></div><div style="background: rgb(22, 27, 34); border: 1px solid rgb(48, 54, 61); border-radius: 16px; padding: 24px;"><div style="display: flex; margin-bottom: 20px; background: rgb(13, 17, 23); border-radius: 9px; padding: 3px;"><button style="flex: 1 1 0%; padding: 9px; border-width: medium; border-style: none; border-color: currentcolor; border-image: initial; border-radius: 7px; cursor: pointer; background: rgb(22, 27, 34); color: rgb(230, 237, 243); font-weight: 700; font-size: 13px;">Iniciar sesión</button><button style="flex: 1 1 0%; padding: 9px; border-width: medium; border-style: none; border-color: currentcolor; border-image: initial; border-radius: 7px; cursor: pointer; background: transparent; color: rgb(139, 148, 158); font-weight: 400; font-size: 13px;">Registrarse</button></div><input type="email" placeholder="Email" value="" style="background: rgb(33, 38, 45); border: 1px solid rgb(48, 54, 61); color: rgb(230, 237, 243); border-radius: 9px; padding: 13px 14px; font-size: 15px; width: 100%; box-sizing: border-box; outline: none; margin-bottom: 10px;"><input type="password" placeholder="Contraseña" value="" style="background: rgb(33, 38, 45); border: 1px solid rgb(48, 54, 61); color: rgb(230, 237, 243); border-radius: 9px; padding: 13px 14px; font-size: 15px; width: 100%; box-sizing: border-box; outline: none; margin-bottom: 16px;"><button style="width: 100%; padding: 13px; background: rgb(35, 134, 54); color: rgb(255, 255, 255); border-width: medium; border-style: none; border-color: currentcolor; border-image: initial; border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer;">Entrar</button></div></div></div></div>
+<script crossorigin="" src="./index_files/react.production.min.js.descarga"></script>
+<script crossorigin="" src="./index_files/react-dom.production.min.js.descarga"></script>
+<script crossorigin="" src="./index_files/xlsx.full.min.js.descarga"></script>
+<script>
+const {
+  useState,
+  useEffect,
+  useRef,
+  useCallback
+} = React;
+
+/* ═══ CONFIG ═══ */
+const SB_URL = "https://qdkwxilrqxpwdhzwhiip.supabase.co";
+const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFka3d4aWxycXhwd2RoendoaWlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1MDM0MDgsImV4cCI6MjA5NTA3OTQwOH0.mpKX2YFvolMon8dvrGiMIEytzzbnTXqOJxJstURkH7U";
+
+/* ═══ API HELPERS ═══ */
+const api = async (table, method = "GET", body = null, filters = "") => {
+  const url = `${SB_URL}/rest/v1/${table}${filters}`;
+  const res = await fetch(url, {
+    method,
+    headers: {
+      "apikey": SB_KEY,
+      "Authorization": `Bearer ${SB_KEY}`,
+      "Content-Type": "application/json",
+      "Prefer": method === "POST" ? "return=representation" : undefined
+    },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || res.statusText);
+  }
+  if (res.status === 204) return null;
+  return res.json();
+};
+const hashPassword = async pwd => {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(pwd));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
+};
+const KEY = "sfurg_session";
+const saveSession = s => {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(s));
+  } catch {}
+};
+const loadSession = () => {
+  try {
+    return JSON.parse(localStorage.getItem(KEY));
+  } catch {
+    return null;
+  }
+};
+const clearSession = () => {
+  try {
+    localStorage.removeItem(KEY);
+  } catch {}
+};
+
+/* ═══ BEEP ═══ */
+function beep() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator(),
+      gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = "square";
+    osc.frequency.setValueAtTime(4588, ctx.currentTime);
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.3);
+  } catch (e) {}
+}
+
+/* ═══ CAMERA SCANNER ═══ */
+function CamScanner({
+  onScan,
+  onClose
+}) {
+  const vidRef = useRef();
+  const scanFn = useRef(onScan);
+  const lastCode = useRef(""),
+    lastTs = useRef(0);
+  const trackRef = useRef(null);
+  const [torchOn, setTorchOn] = useState(false);
+  const [torchAvail, setTorchAvail] = useState(false);
+  scanFn.current = onScan;
+  const toggleTorch = async () => {
+    if (!trackRef.current) return;
+    try {
+      const next = !torchOn;
+      await trackRef.current.applyConstraints({
+        advanced: [{
+          torch: next
+        }]
+      });
+      setTorchOn(next);
+    } catch (e) {
+      setTorchAvail(false);
+    }
+  };
+  useEffect(() => {
+    if (!window.BarcodeDetector) {
+      alert("BarcodeDetector no disponible.\nUsa Chrome actualizado o la pistola BT.");
+      onClose();
+      return;
+    }
+    const det = new window.BarcodeDetector({
+      formats: ["qr_code", "ean_13", "ean_8", "code_128", "code_39", "data_matrix", "upc_a", "upc_e", "itf"]
+    });
+    let raf, stream;
+    navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: "environment"
+      }
+    }).then(s => {
+      stream = s;
+      const v = vidRef.current;
+      if (!v) {
+        s.getTracks().forEach(t => t.stop());
+        return;
+      }
+      v.srcObject = s;
+      v.play();
+      const track = s.getVideoTracks()[0];
+      trackRef.current = track;
+      const caps = track.getCapabilities && track.getCapabilities();
+      if (caps && caps.torch) setTorchAvail(true);
+      const loop = () => {
+        if (!v.readyState || v.readyState < 2) {
+          raf = requestAnimationFrame(loop);
+          return;
+        }
+        det.detect(v).then(codes => {
+          if (codes.length) {
+            const code = codes[0].rawValue,
+              now = Date.now();
+            if (code !== lastCode.current || now - lastTs.current > 1500) {
+              lastCode.current = code;
+              lastTs.current = now;
+              beep();
+              scanFn.current(code);
+            }
+          }
+        }).catch(() => {}).finally(() => {
+          raf = requestAnimationFrame(loop);
+        });
+      };
+      raf = requestAnimationFrame(loop);
+    }).catch(e => {
+      alert("Error cámara: " + e.message);
+      onClose();
+    });
+    return () => {
+      cancelAnimationFrame(raf);
+      if (stream) stream.getTracks().forEach(t => t.stop());
+    };
+  }, []);
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: "fixed",
+      inset: 0,
+      background: "#000",
+      zIndex: 200,
+      display: "flex",
+      flexDirection: "column"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: "relative",
+      flex: 1,
+      overflow: "hidden"
+    }
+  }, /*#__PURE__*/React.createElement("video", {
+    ref: vidRef,
+    playsInline: true,
+    muted: true,
+    style: {
+      width: "100%",
+      height: "100%",
+      objectFit: "cover"
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: "absolute",
+      inset: 0,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      pointerEvents: "none"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: 240,
+      height: 240,
+      border: "2px solid #22c55e",
+      borderRadius: 16,
+      boxShadow: "0 0 0 4000px rgba(0,0,0,0.5)"
+    }
+  })), torchAvail && /*#__PURE__*/React.createElement("button", {
+    onClick: toggleTorch,
+    style: {
+      position: "absolute",
+      top: 20,
+      right: 20,
+      width: 52,
+      height: 52,
+      borderRadius: "50%",
+      border: "2px solid " + (torchOn ? "#fde047" : "#6b7280"),
+      background: torchOn ? "rgba(253,224,71,0.2)" : "rgba(0,0,0,0.5)",
+      fontSize: 24,
+      cursor: "pointer",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center"
+    }
+  }, "\uD83D\uDD26")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: "16px 20px 24px",
+      background: "#0a0a0a"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: "center",
+      color: "#6b7280",
+      fontSize: 13,
+      marginBottom: 12
+    }
+  }, "\uD83D\uDCF8 ESCANEO CONTINUO ACTIVO", torchOn ? " · 🔦 ON" : ""), /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    style: {
+      width: "100%",
+      padding: "15px",
+      background: "#dc2626",
+      color: "#fff",
+      border: "none",
+      borderRadius: 12,
+      fontSize: 16,
+      fontWeight: 700,
+      cursor: "pointer"
+    }
+  }, "\u25A0 PARAR ESCANEO")));
+}
+
+/* ═══ REF PICKER ═══ */
+function RefPicker({
+  catalog,
+  getStock,
+  isLow,
+  onSelect,
+  onClose
+}) {
+  const [q, setQ] = useState("");
+  const inpRef = useRef();
+  useEffect(() => {
+    setTimeout(() => inpRef.current && inpRef.current.focus(), 100);
+  }, []);
+  const filtered = catalog.filter(r => !q || r.articulo.toLowerCase().includes(q.toLowerCase()) || r.codigo_sage.includes(q));
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: "fixed",
+      inset: 0,
+      background: "#0d1117",
+      zIndex: 100,
+      display: "flex",
+      flexDirection: "column"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: "14px 16px",
+      background: "#161b22",
+      borderBottom: "1px solid #30363d",
+      display: "flex",
+      gap: 10,
+      alignItems: "center"
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    style: {
+      background: "none",
+      border: "none",
+      color: "#8b949e",
+      fontSize: 22,
+      cursor: "pointer"
+    }
+  }, "\u2715"), /*#__PURE__*/React.createElement("input", {
+    ref: inpRef,
+    value: q,
+    onChange: e => setQ(e.target.value),
+    placeholder: "Buscar referencia o c\xF3digo Sage...",
+    style: {
+      flex: 1,
+      background: "#21262d",
+      border: "1px solid #30363d",
+      color: "#e6edf3",
+      borderRadius: 8,
+      padding: "10px 12px",
+      fontSize: 14,
+      outline: "none"
+    }
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      overflowY: "auto",
+      flex: 1
+    }
+  }, filtered.map(r => /*#__PURE__*/React.createElement("div", {
+    key: r.id,
+    onClick: () => {
+      onSelect(r);
+      onClose();
+    },
+    style: {
+      padding: "13px 16px",
+      borderBottom: "1px solid #161b22",
+      cursor: "pointer",
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      background: isLow(r) ? "#1c0a0a" : "transparent"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      minWidth: 0,
+      marginRight: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 14,
+      fontWeight: 600,
+      color: "#e6edf3",
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+      whiteSpace: "nowrap"
+    }
+  }, r.articulo), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 6,
+      marginTop: 4
+    }
+  }, r.codigo_sage && /*#__PURE__*/React.createElement("span", {
+    style: {
+      background: "#21262d",
+      color: "#8b949e",
+      borderRadius: 4,
+      padding: "1px 6px",
+      fontSize: 10,
+      fontFamily: "monospace"
+    }
+  }, "#", r.codigo_sage), /*#__PURE__*/React.createElement("span", {
+    style: {
+      background: r.subtipo === "serializado" ? "#1f3a5f" : "#3a1f5f",
+      color: r.subtipo === "serializado" ? "#58a6ff" : "#bc8cff",
+      borderRadius: 4,
+      padding: "1px 6px",
+      fontSize: 10,
+      fontWeight: 600
+    }
+  }, r.subtipo === "serializado" ? "SERIE" : "CANT"))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: "right",
+      flexShrink: 0
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 22,
+      fontWeight: 700,
+      color: isLow(r) ? "#f85149" : "#3fb950"
+    }
+  }, getStock(r)), r.stock_objetivo > 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10,
+      color: "#6e7681"
+    }
+  }, "obj ", r.stock_objetivo)))), filtered.length === 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: "center",
+      color: "#6e7681",
+      padding: "50px 20px"
+    }
+  }, "Sin resultados")));
+}
+
+/* ═══ HISTORY MODAL ═══ */
+function HistoryModal({
+  hist,
+  onClose
+}) {
+  const [filter, setFilter] = useState("all");
+  const today = new Date().toISOString().slice(0, 10);
+  const firstOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
+  const [dateFrom, setDateFrom] = useState(firstOfMonth);
+  const [dateTo, setDateTo] = useState(today);
+  const bg = "#0d1117",
+    surface = "#161b22",
+    border = "#30363d",
+    textPrimary = "#e6edf3",
+    textMuted = "#8b949e",
+    textDim = "#6e7681";
+  const green = "#3fb950",
+    red = "#f85149",
+    blue = "#58a6ff";
+  const inp = {
+    background: "#21262d",
+    border: "1px solid " + border,
+    color: textPrimary,
+    borderRadius: 8,
+    padding: "8px 10px",
+    fontSize: 13,
+    outline: "none",
+    width: "100%",
+    boxSizing: "border-box"
+  };
+  const filtered = (hist || []).filter(i => {
+    if (filter !== "all" && i.tipo !== filter) return false;
+    if (i.fecha) {
+      const d = i.fecha.slice(0, 10);
+      if (dateFrom && d < dateFrom) return false;
+      if (dateTo && d > dateTo) return false;
+    }
+    return true;
+  });
+  const items = [...filtered].reverse();
+  const fmtDate = iso => {
+    const d = new Date(iso);
+    return d.toLocaleDateString("es-ES", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "2-digit"
+    });
+  };
+  const fmtTime = iso => {
+    const d = new Date(iso);
+    return d.toLocaleTimeString("es-ES", {
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: "fixed",
+      inset: 0,
+      background: bg,
+      zIndex: 150,
+      display: "flex",
+      flexDirection: "column"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: "14px 16px",
+      background: surface,
+      borderBottom: "1px solid " + border,
+      flexShrink: 0
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontWeight: 700,
+      fontSize: 16
+    }
+  }, "\uD83D\uDCDC Historial"), /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    style: {
+      background: "none",
+      border: "none",
+      color: textMuted,
+      fontSize: 22,
+      cursor: "pointer"
+    }
+  }, "\u2715")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 6,
+      marginBottom: 8
+    }
+  }, [["all", "Todas"], ["entrada", "Entradas"], ["salida", "Salidas"]].map(([v, l]) => /*#__PURE__*/React.createElement("button", {
+    key: v,
+    onClick: () => setFilter(v),
+    style: {
+      flex: 1,
+      padding: "7px 4px",
+      border: "1px solid " + (filter === v ? "#58a6ff" : border),
+      borderRadius: 8,
+      cursor: "pointer",
+      background: filter === v ? "#1f3a5f" : "transparent",
+      color: filter === v ? blue : textMuted,
+      fontSize: 12,
+      fontWeight: 600
+    }
+  }, l))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "grid",
+      gridTemplateColumns: "1fr auto 1fr",
+      gap: 6,
+      alignItems: "center"
+    }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10,
+      color: textDim,
+      marginBottom: 3
+    }
+  }, "DESDE"), /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    value: dateFrom,
+    onChange: e => setDateFrom(e.target.value),
+    style: inp
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      color: textDim,
+      fontSize: 12,
+      marginTop: 14
+    }
+  }, "\u2192"), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10,
+      color: textDim,
+      marginBottom: 3
+    }
+  }, "HASTA"), /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    value: dateTo,
+    onChange: e => setDateTo(e.target.value),
+    style: inp
+  })))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      overflowY: "auto",
+      flex: 1
+    }
+  }, items.length === 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: "center",
+      color: textDim,
+      padding: "50px 20px"
+    }
+  }, "Sin movimientos"), items.map((item, i) => /*#__PURE__*/React.createElement("div", {
+    key: i,
+    style: {
+      padding: "10px 16px",
+      borderBottom: "1px solid #161b22",
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "flex-start"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      minWidth: 0,
+      marginRight: 8
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 6,
+      marginBottom: 3,
+      flexWrap: "wrap"
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11,
+      fontWeight: 700,
+      color: item.tipo === "entrada" ? green : red,
+      background: item.tipo === "entrada" ? "#0f2d1a" : "#2d0f0f",
+      padding: "2px 7px",
+      borderRadius: 4
+    }
+  }, item.tipo === "entrada" ? "↑ ENT" : "↓ SAL"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11,
+      color: textDim
+    }
+  }, item.fecha ? fmtDate(item.fecha) : "-", " ", item.fecha ? fmtTime(item.fecha) : "")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      fontWeight: 600,
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+      whiteSpace: "nowrap"
+    }
+  }, item.articulo_nombre), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8,
+      marginTop: 2,
+      flexWrap: "wrap"
+    }
+  }, item.serial && /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11,
+      color: blue,
+      fontFamily: "monospace"
+    }
+  }, "#", item.serial), item.cantidad && /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11,
+      color: "#bc8cff"
+    }
+  }, item.cantidad, " uds"), item.origen && /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11,
+      color: textMuted,
+      background: "#21262d",
+      borderRadius: 4,
+      padding: "0 5px"
+    }
+  }, item.origen)))))));
+}
+
+/* ═══ LOGIN SCREEN ═══ */
+function LoginScreen({
+  onLogin
+}) {
+  const [email, setEmail] = useState("");
+  const [pwd, setPwd] = useState("");
+  const [mode, setMode] = useState("login"); // login | register
+  const [nombre, setNombre] = useState("");
+  const [empresa, setEmpresa] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const bg = "#0d1117",
+    surface = "#161b22",
+    border = "#30363d",
+    textPrimary = "#e6edf3",
+    textMuted = "#8b949e";
+  const inp = {
+    background: "#21262d",
+    border: "1px solid " + border,
+    color: textPrimary,
+    borderRadius: 9,
+    padding: "13px 14px",
+    fontSize: 15,
+    width: "100%",
+    boxSizing: "border-box",
+    outline: "none",
+    marginBottom: 10
+  };
+  const doLogin = async () => {
+    if (!email || !pwd) {
+      setError("Rellena todos los campos");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      const hash = await hashPassword(pwd);
+      const users = await api("usuarios", "GET", null, `?email=eq.${encodeURIComponent(email)}&password_hash=eq.${hash}&select=*`);
+      if (!users || users.length === 0) {
+        setError("Email o contraseña incorrectos");
+        return;
+      }
+      const user = users[0];
+      if (!user.activo) {
+        setError("Tu cuenta está pendiente de activación por el administrador");
+        return;
+      }
+      saveSession(user);
+      onLogin(user);
+    } catch (e) {
+      setError("Error de conexión: " + e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+  const doRegister = async () => {
+    if (!nombre || !empresa || !email || !pwd) {
+      setError("Rellena todos los campos");
+      return;
+    }
+    if (pwd.length < 6) {
+      setError("La contraseña debe tener al menos 6 caracteres");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      // Find or create empresa
+      let empresas = await api("empresas", "GET", null, `?nombre=eq.${encodeURIComponent(empresa)}&select=id`);
+      let empresaId;
+      if (!empresas || empresas.length === 0) {
+        const newEmp = await api("empresas", "POST", {
+          nombre: empresa
+        });
+        empresaId = newEmp[0].id;
+      } else {
+        empresaId = empresas[0].id;
+      }
+      const hash = await hashPassword(pwd);
+      await api("usuarios", "POST", {
+        empresa_id: empresaId,
+        email,
+        nombre,
+        password_hash: hash,
+        rol: "tecnico",
+        activo: false
+      });
+      setSuccess("✅ Cuenta creada. Espera la activación por parte del administrador.");
+      setMode("login");
+    } catch (e) {
+      if (e.message.includes("duplicate") || e.message.includes("unique")) setError("Ese email ya está registrado");else setError("Error: " + e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      minHeight: "100vh",
+      background: bg,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 20
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: "100%",
+      maxWidth: 380
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: "center",
+      marginBottom: 32
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 48,
+      marginBottom: 8
+    }
+  }, "\uD83D\uDCE6"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 24,
+      fontWeight: 800,
+      color: textPrimary,
+      letterSpacing: "-0.03em"
+    }
+  }, "Stock Furgoneta"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      color: textMuted,
+      marginTop: 4
+    }
+  }, "Gesti\xF3n de material para t\xE9cnicos")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: surface,
+      border: "1px solid " + border,
+      borderRadius: 16,
+      padding: 24
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      marginBottom: 20,
+      background: "#0d1117",
+      borderRadius: 9,
+      padding: 3
+    }
+  }, [["login", "Iniciar sesión"], ["register", "Registrarse"]].map(([v, l]) => /*#__PURE__*/React.createElement("button", {
+    key: v,
+    onClick: () => {
+      setMode(v);
+      setError("");
+      setSuccess("");
+    },
+    style: {
+      flex: 1,
+      padding: "9px",
+      border: "none",
+      borderRadius: 7,
+      cursor: "pointer",
+      background: mode === v ? surface : "transparent",
+      color: mode === v ? textPrimary : textMuted,
+      fontWeight: mode === v ? 700 : 400,
+      fontSize: 13
+    }
+  }, l))), error && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "#3d0000",
+      border: "1px solid #5a0000",
+      borderRadius: 8,
+      padding: "10px 12px",
+      marginBottom: 12,
+      fontSize: 13,
+      color: "#f87171"
+    }
+  }, error), success && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "#0f2d1a",
+      border: "1px solid #1a4a2a",
+      borderRadius: 8,
+      padding: "10px 12px",
+      marginBottom: 12,
+      fontSize: 13,
+      color: "#3fb950"
+    }
+  }, success), mode === "register" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("input", {
+    value: nombre,
+    onChange: e => setNombre(e.target.value),
+    placeholder: "Nombre completo",
+    style: inp
+  }), /*#__PURE__*/React.createElement("input", {
+    value: empresa,
+    onChange: e => setEmpresa(e.target.value),
+    placeholder: "Empresa",
+    style: inp
+  })), /*#__PURE__*/React.createElement("input", {
+    type: "email",
+    value: email,
+    onChange: e => setEmail(e.target.value),
+    placeholder: "Email",
+    style: inp
+  }), /*#__PURE__*/React.createElement("input", {
+    type: "password",
+    value: pwd,
+    onChange: e => setPwd(e.target.value),
+    placeholder: "Contrase\xF1a",
+    onKeyDown: e => e.key === "Enter" && (mode === "login" ? doLogin() : doRegister()),
+    style: {
+      ...inp,
+      marginBottom: 16
+    }
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: mode === "login" ? doLogin : doRegister,
+    disabled: loading,
+    style: {
+      width: "100%",
+      padding: "13px",
+      background: loading ? "#1f3a5f" : "#238636",
+      color: "#fff",
+      border: "none",
+      borderRadius: 10,
+      fontSize: 15,
+      fontWeight: 700,
+      cursor: loading ? "default" : "pointer"
+    }
+  }, loading ? "⏳ Cargando..." : mode === "login" ? "Entrar" : "Crear cuenta"))));
+}
+
+/* ═══ ADMIN PANEL ═══ */
+function AdminPanel({
+  user,
+  onLogout
+}) {
+  const [tab, setTab] = useState("usuarios");
+  const [usuarios, setUsuarios] = useState([]);
+  const [plantilla, setPlantilla] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState(null);
+  const bg = "#0d1117",
+    surface = "#161b22",
+    border = "#30363d",
+    textPrimary = "#e6edf3",
+    textMuted = "#8b949e";
+  const green = "#3fb950",
+    red = "#f85149",
+    blue = "#58a6ff",
+    amber = "#d29922";
+  const showToast = (msg, color) => {
+    setToast({
+      msg,
+      color: color || green
+    });
+    setTimeout(() => setToast(null), 2500);
+  };
+  const loadUsuarios = async () => {
+    setLoading(true);
+    try {
+      const data = await api("usuarios", "GET", null, "?select=*,empresas(nombre)&order=fecha_alta.desc");
+      setUsuarios(data || []);
+    } catch (e) {
+      showToast("Error: " + e.message, red);
+    } finally {
+      setLoading(false);
+    }
+  };
+  const loadPlantilla = async () => {
+    setLoading(true);
+    try {
+      const data = await api("plantilla", "GET", null, "?select=*&order=orden.asc");
+      setPlantilla(data || []);
+    } catch (e) {
+      showToast("Error: " + e.message, red);
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => {
+    if (tab === "usuarios") loadUsuarios();
+    if (tab === "plantilla") loadPlantilla();
+  }, [tab]);
+  const toggleActivo = async u => {
+    try {
+      await api(`usuarios?id=eq.${u.id}`, "PATCH", {
+        activo: !u.activo
+      });
+      showToast(u.activo ? "Usuario desactivado" : "Usuario activado ✅");
+      loadUsuarios();
+    } catch (e) {
+      showToast("Error: " + e.message, red);
+    }
+  };
+  const card = extra => Object.assign({
+    background: surface,
+    border: "1px solid " + border,
+    borderRadius: 12,
+    padding: "14px 16px",
+    marginBottom: 10
+  }, extra || {});
+  const btn = (bg2, extra) => Object.assign({
+    background: bg2 || blue,
+    color: "#fff",
+    border: "none",
+    borderRadius: 8,
+    padding: "8px 14px",
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: "pointer"
+  }, extra || {});
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      minHeight: "100vh",
+      background: bg,
+      color: textPrimary,
+      paddingBottom: 64,
+      fontFamily: "system-ui,sans-serif"
+    }
+  }, toast && /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: "fixed",
+      top: 60,
+      left: "50%",
+      transform: "translateX(-50%)",
+      background: toast.color,
+      color: "#fff",
+      borderRadius: 24,
+      padding: "10px 20px",
+      fontWeight: 700,
+      fontSize: 14,
+      zIndex: 300,
+      whiteSpace: "nowrap",
+      boxShadow: "0 4px 20px rgba(0,0,0,0.4)"
+    }
+  }, toast.msg), /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: surface,
+      padding: "14px 16px",
+      borderBottom: "1px solid " + border,
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center"
+    }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontWeight: 800,
+      fontSize: 17
+    }
+  }, "\u2699\uFE0F Panel Admin"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: textMuted
+    }
+  }, user.nombre)), /*#__PURE__*/React.createElement("button", {
+    onClick: onLogout,
+    style: btn("#3d0000")
+  }, "Salir")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      borderBottom: "1px solid " + border,
+      background: surface
+    }
+  }, [["usuarios", "👥 Usuarios"], ["plantilla", "📋 Plantilla"]].map(([id, label]) => /*#__PURE__*/React.createElement("button", {
+    key: id,
+    onClick: () => setTab(id),
+    style: {
+      flex: 1,
+      padding: "12px",
+      border: "none",
+      background: "transparent",
+      color: tab === id ? blue : textMuted,
+      fontWeight: tab === id ? 700 : 400,
+      fontSize: 13,
+      cursor: "pointer",
+      borderBottom: tab === id ? "2px solid " + blue : "2px solid transparent"
+    }
+  }, label))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: "14px 16px"
+    }
+  }, loading && /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: "center",
+      color: textMuted,
+      padding: 20
+    }
+  }, "Cargando..."), tab === "usuarios" && !loading && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      color: textMuted,
+      marginBottom: 12
+    }
+  }, usuarios.length, " usuarios registrados \xB7 ", usuarios.filter(u => !u.activo).length, " pendientes de activaci\xF3n"), usuarios.filter(u => !u.activo).length > 0 && /*#__PURE__*/React.createElement("div", {
+    style: Object.assign(card(), {
+      background: "#1a1500",
+      borderColor: "#3a3000",
+      marginBottom: 14
+    })
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontWeight: 700,
+      color: amber,
+      marginBottom: 8,
+      fontSize: 13
+    }
+  }, "\u23F3 Pendientes de activaci\xF3n"), usuarios.filter(u => !u.activo).map(u => /*#__PURE__*/React.createElement("div", {
+    key: u.id,
+    style: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      padding: "8px 0",
+      borderBottom: "1px solid #2a2000"
+    }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      fontWeight: 600
+    }
+  }, u.nombre), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: textMuted
+    }
+  }, u.email, " \xB7 ", u.empresas?.nombre)), /*#__PURE__*/React.createElement("button", {
+    onClick: () => toggleActivo(u),
+    style: btn("#238636", {
+      padding: "6px 14px"
+    })
+  }, "\u2705 Activar")))), usuarios.filter(u => u.activo).map(u => /*#__PURE__*/React.createElement("div", {
+    key: u.id,
+    style: Object.assign(card(), {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center"
+    })
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      minWidth: 0
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      fontWeight: 600,
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+      whiteSpace: "nowrap"
+    }
+  }, u.nombre), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: textMuted,
+      marginTop: 2
+    }
+  }, u.email, " \xB7 ", u.empresas?.nombre, " \xB7 ", /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: u.rol === "admin" ? amber : blue
+    }
+  }, u.rol))), u.rol !== "admin" && /*#__PURE__*/React.createElement("button", {
+    onClick: () => toggleActivo(u),
+    style: btn("#3d0000", {
+      padding: "5px 10px",
+      fontSize: 12,
+      marginLeft: 8
+    })
+  }, "Desactivar")))), tab === "plantilla" && !loading && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      color: textMuted,
+      marginBottom: 12
+    }
+  }, plantilla.length, " art\xEDculos en la plantilla global"), plantilla.map(r => /*#__PURE__*/React.createElement("div", {
+    key: r.id,
+    style: Object.assign(card(), {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center"
+    })
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      minWidth: 0
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      fontWeight: 600,
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+      whiteSpace: "nowrap"
+    }
+  }, r.articulo), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 6,
+      marginTop: 4
+    }
+  }, r.codigo_sage && /*#__PURE__*/React.createElement("span", {
+    style: {
+      background: "#21262d",
+      color: textMuted,
+      borderRadius: 4,
+      padding: "1px 6px",
+      fontSize: 10,
+      fontFamily: "monospace"
+    }
+  }, "#", r.codigo_sage), r.motivo && /*#__PURE__*/React.createElement("span", {
+    style: {
+      background: "#1f2937",
+      color: textMuted,
+      borderRadius: 4,
+      padding: "1px 6px",
+      fontSize: 10
+    }
+  }, r.motivo))))))), /*#__PURE__*/React.createElement("nav", {
+    style: {
+      position: "fixed",
+      bottom: 0,
+      left: 0,
+      right: 0,
+      background: surface,
+      borderTop: "1px solid " + border,
+      display: "flex",
+      zIndex: 20,
+      padding: "8px 0 12px"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: "center",
+      width: "100%",
+      fontSize: 11,
+      color: textMuted
+    }
+  }, "Panel de Administraci\xF3n \xB7 Stock Furgoneta")));
+}
+
+/* ═══ MAIN TECNICO APP ═══ */
+function TecnicoApp({
+  user,
+  onLogout
+}) {
+  const [catalog, setCatalog] = useState([]);
+  const [seriales, setSeriales] = useState({});
+  const [hist, setHist] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState("home");
+  const [mode, setMode] = useState("entrada");
+  const [selRef, setSelRef] = useState(null);
+  const [session, setSession] = useState([]);
+  const [showCam, setShowCam] = useState(false);
+  const [showPicker, setShowPicker] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [btVal, setBtVal] = useState("");
+  const [qty, setQty] = useState(1);
+  const [origen, setOrigen] = useState("Almacen");
+  const [search, setSearch] = useState("");
+  const [editRef, setEditRef] = useState(null);
+  const [editMin, setEditMin] = useState("");
+  const [editObj, setEditObj] = useState("");
+  const [editSubtipo, setEditSubtipo] = useState("");
+  const [toast, setToast] = useState(null);
+  const [expandedSerials, setExpandedSerials] = useState(new Set());
+  const [showEquipos, setShowEquipos] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const btRef = useRef(),
+    importRef = useRef();
+  const showToast = (msg, color) => {
+    setToast({
+      msg,
+      color: color || "#22c55e"
+    });
+    setTimeout(() => setToast(null), 2500);
+  };
+  useEffect(() => {
+    setOrigen(mode === "entrada" ? "Almacen" : "");
+  }, [mode]);
+  useEffect(() => {
+    if (tab === "op" && !showCam && !showPicker && selRef && selRef.subtipo === "serializado") setTimeout(() => btRef.current && btRef.current.focus(), 200);
+  }, [tab, showCam, showPicker, selRef]);
+
+  /* ── Load data from Supabase ── */
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      // Load plantilla
+      const pl = await api("plantilla", "GET", null, "?select=*&order=orden.asc");
+      // Load stock for this user
+      const st = await api("stock", "GET", null, `?usuario_id=eq.${user.id}&select=*`);
+      // Load seriales for this user
+      const se = await api("seriales", "GET", null, `?usuario_id=eq.${user.id}&select=*`);
+      // Load historial
+      const hi = await api("historial", "GET", null, `?usuario_id=eq.${user.id}&select=*&order=fecha.desc&limit=500`);
+
+      // Merge plantilla with stock settings
+      const stockMap = {};
+      (st || []).forEach(s => {
+        stockMap[s.articulo_id] = s;
+      });
+      const catalog = (pl || []).map(art => {
+        const s = stockMap[art.id] || {};
+        return {
+          ...art,
+          stock_id: s.id || null,
+          cantidad: s.cantidad || 0,
+          subtipo: s.subtipo || (art.codigo_sage ? "cantidad" : "serializado"),
+          stock_minimo: s.stock_minimo || 0,
+          stock_objetivo: s.stock_objetivo || 0
+        };
+      });
+
+      // Build seriales map
+      const serialesMap = {};
+      (se || []).forEach(s => {
+        if (!serialesMap[s.articulo_id]) serialesMap[s.articulo_id] = [];
+        serialesMap[s.articulo_id].push(s);
+      });
+      setCatalog(catalog);
+      setSeriales(serialesMap);
+      setHist(hi || []);
+    } catch (e) {
+      showToast("Error al cargar datos: " + e.message, "#ef4444");
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => {
+    loadData();
+  }, []);
+  const getStock = r => r.subtipo === "serializado" ? (seriales[r.id] || []).length : r.cantidad || 0;
+  const isLow = r => r.stock_minimo > 0 && getStock(r) <= r.stock_minimo;
+  const lowRefs = catalog.filter(isLow);
+  const allSerializedInStock = catalog.filter(r => r.subtipo === "serializado").flatMap(r => (seriales[r.id] || []).map(s => ({
+    articulo: r.articulo,
+    serial: s.numero_serie
+  })));
+
+  /* ── Ensure stock row exists ── */
+  const ensureStockRow = async articuloId => {
+    const existing = catalog.find(c => c.id === articuloId);
+    if (existing && existing.stock_id) return existing.stock_id;
+    const rows = await api("stock", "POST", {
+      usuario_id: user.id,
+      articulo_id: articuloId,
+      cantidad: 0,
+      subtipo: existing?.subtipo || "cantidad",
+      stock_minimo: 0,
+      stock_objetivo: 0
+    });
+    return rows[0].id;
+  };
+
+  /* ── Scan ── */
+  const onScan = useCallback(raw => {
+    const code = raw.trim();
+    if (!code || !selRef || selRef.subtipo !== "serializado") return;
+    if (session.some(i => i.serial === code)) {
+      showToast("⚠️ Serie ya en sesión", "#f59e0b");
+      return;
+    }
+    if (mode === "salida") {
+      const inStock = (seriales[selRef.id] || []).some(s => s.numero_serie === code);
+      if (!inStock) {
+        showToast("❌ Serie no está en stock", "#ef4444");
+        return;
+      }
+    }
+    beep();
+    setSession(p => [...p, {
+      id: Date.now() + Math.random(),
+      refId: selRef.id,
+      articulo: selRef.articulo,
+      serial: code
+    }]);
+    showToast("✅ " + code.slice(0, 20), mode === "entrada" ? "#22c55e" : "#f87171");
+  }, [selRef, mode, session, seriales]);
+  const addConsumable = () => {
+    if (!selRef || qty <= 0) return;
+    const idx = session.findIndex(i => i.refId === selRef.id && !i.serial);
+    if (idx >= 0) setSession(p => p.map((x, i) => i === idx ? {
+      ...x,
+      cantidad: (x.cantidad || 0) + qty
+    } : x));else setSession(p => [...p, {
+      id: Date.now(),
+      refId: selRef.id,
+      articulo: selRef.articulo,
+      cantidad: qty
+    }]);
+    showToast((mode === "entrada" ? "+" : "-") + qty + " uds", mode === "entrada" ? "#22c55e" : "#f87171");
+    setQty(1);
+  };
+
+  /* ── Confirm session ── */
+  const confirmSession = async () => {
+    if (!session.length) return;
+    setShowCam(false);
+    setSyncing(true);
+    try {
+      for (const item of session) {
+        const articuloId = item.refId;
+        if (item.serial) {
+          if (mode === "entrada") {
+            // Insert serial
+            await api("seriales", "POST", {
+              usuario_id: user.id,
+              articulo_id: articuloId,
+              numero_serie: item.serial
+            });
+          } else {
+            // Delete serial
+            const ser = (seriales[articuloId] || []).find(s => s.numero_serie === item.serial);
+            if (ser) await api(`seriales?id=eq.${ser.id}`, "DELETE");
+          }
+        } else {
+          // Update quantity
+          const stockId = await ensureStockRow(articuloId);
+          const ref = catalog.find(c => c.id === articuloId);
+          const currentQty = ref ? ref.cantidad || 0 : 0;
+          const delta = mode === "entrada" ? item.cantidad || 1 : -(item.cantidad || 1);
+          const newQty = Math.max(0, currentQty + delta);
+          await api(`stock?id=eq.${stockId}`, "PATCH", {
+            cantidad: newQty
+          });
+        }
+        // Log historial
+        await api("historial", "POST", {
+          usuario_id: user.id,
+          articulo_id: articuloId,
+          articulo_nombre: item.articulo,
+          tipo: mode,
+          cantidad: item.serial ? 1 : item.cantidad || 1,
+          serial: item.serial || null,
+          origen: origen || null
+        });
+      }
+      const n = session.length;
+      setSession([]);
+      setSelRef(null);
+      await loadData();
+      setTab("home");
+      showToast("✅ " + (mode === "entrada" ? "Entrada" : "Salida") + " confirmada (" + n + ")", mode === "entrada" ? "#22c55e" : "#f87171");
+    } catch (e) {
+      showToast("Error: " + e.message, "#ef4444");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  /* ── Edit ref ── */
+  const openEdit = r => {
+    setEditRef(r);
+    setEditMin(String(r.stock_minimo || 0));
+    setEditObj(String(r.stock_objetivo || 0));
+    setEditSubtipo(r.subtipo);
+  };
+  const saveEdit = async () => {
+    try {
+      const stockId = await ensureStockRow(editRef.id);
+      await api(`stock?id=eq.${stockId}`, "PATCH", {
+        subtipo: editSubtipo,
+        stock_minimo: parseInt(editMin) || 0,
+        stock_objetivo: parseInt(editObj) || 0
+      });
+      await loadData();
+      setEditRef(null);
+      showToast("✅ Configuración guardada");
+    } catch (e) {
+      showToast("Error: " + e.message, "#ef4444");
+    }
+  };
+  const toggleSerialExpand = id => {
+    setExpandedSerials(prev => {
+      const s = new Set(prev);
+      s.has(id) ? s.delete(id) : s.add(id);
+      return s;
+    });
+  };
+
+  /* ═══ STYLES ═══ */
+  const bg = "#0d1117",
+    surface = "#161b22",
+    surface2 = "#21262d",
+    border = "#30363d";
+  const textPrimary = "#e6edf3",
+    textMuted = "#8b949e",
+    textDim = "#6e7681";
+  const green = "#3fb950",
+    red = "#f85149",
+    blue = "#58a6ff",
+    amber = "#d29922",
+    purple = "#bc8cff";
+  const card = (danger, extra) => Object.assign({
+    background: danger ? "#1c0a0a" : surface,
+    border: "1px solid " + (danger ? "#3d1515" : border),
+    borderRadius: 12,
+    padding: "14px 16px",
+    marginBottom: 10
+  }, extra || {});
+  const btn = (bg2, extra) => Object.assign({
+    background: bg2 || blue,
+    color: "#fff",
+    border: "none",
+    borderRadius: 10,
+    padding: "13px 18px",
+    fontSize: 14,
+    fontWeight: 600,
+    cursor: "pointer",
+    width: "100%",
+    marginBottom: 8,
+    display: "block",
+    letterSpacing: "0.02em"
+  }, extra || {});
+  const btnSm = (bg2, extra) => Object.assign({
+    background: bg2 || surface2,
+    color: "#fff",
+    border: "none",
+    borderRadius: 8,
+    padding: "8px 12px",
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: "pointer"
+  }, extra || {});
+  const inp = {
+    background: surface2,
+    border: "1px solid " + border,
+    color: textPrimary,
+    borderRadius: 8,
+    padding: "11px 12px",
+    fontSize: 14,
+    width: "100%",
+    boxSizing: "border-box",
+    outline: "none"
+  };
+  const chip = (bg2, color2) => ({
+    background: bg2,
+    color: color2,
+    borderRadius: 5,
+    padding: "2px 7px",
+    fontSize: 10,
+    fontWeight: 700,
+    display: "inline-block",
+    letterSpacing: "0.04em"
+  });
+  const filtCatalog = catalog.filter(r => !search || r.articulo.toLowerCase().includes(search.toLowerCase()) || r.codigo_sage.includes(search));
+  const orderItems = catalog.filter(r => r.stock_objetivo > 0 && getStock(r) < r.stock_objetivo);
+  const orderCount = orderItems.length;
+
+  /* ── EDIT SCREEN ── */
+  if (editRef) return /*#__PURE__*/React.createElement("div", {
+    style: {
+      minHeight: "100vh",
+      background: bg,
+      color: textPrimary,
+      paddingBottom: 24,
+      fontFamily: "system-ui,sans-serif"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: surface,
+      padding: "14px 16px",
+      borderBottom: "1px solid " + border,
+      display: "flex",
+      alignItems: "center",
+      gap: 12
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setEditRef(null),
+    style: {
+      background: "none",
+      border: "none",
+      color: textMuted,
+      fontSize: 22,
+      cursor: "pointer"
+    }
+  }, "\u2190"), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontWeight: 700,
+      fontSize: 15
+    }
+  }, "Configurar referencia"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: textMuted
+    }
+  }, editRef.articulo.slice(0, 48)))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: "16px"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: card()
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: textMuted,
+      marginBottom: 8,
+      fontWeight: 600,
+      textTransform: "uppercase",
+      letterSpacing: "0.06em"
+    }
+  }, "Tipo de seguimiento"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8
+    }
+  }, ["serializado", "cantidad"].map(t => /*#__PURE__*/React.createElement("button", {
+    key: t,
+    onClick: () => setEditSubtipo(t),
+    style: Object.assign(btnSm(editSubtipo === t ? t === "serializado" ? "#1f3a5f" : "#3a1f5f" : surface2), {
+      flex: 1,
+      padding: 12,
+      border: "1px solid " + (editSubtipo === t ? t === "serializado" ? blue : purple : border),
+      color: editSubtipo === t ? t === "serializado" ? blue : purple : textMuted,
+      borderRadius: 10
+    })
+  }, t === "serializado" ? "🔢 Por serie" : "📦 Por cantidad")))), /*#__PURE__*/React.createElement("div", {
+    style: card()
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: textMuted,
+      marginBottom: 6,
+      fontWeight: 600,
+      textTransform: "uppercase",
+      letterSpacing: "0.06em"
+    }
+  }, "Stock m\xEDnimo"), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    value: editMin,
+    onChange: e => setEditMin(e.target.value),
+    style: inp,
+    min: "0",
+    placeholder: "0 = sin alerta"
+  })), /*#__PURE__*/React.createElement("div", {
+    style: card()
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: textMuted,
+      marginBottom: 6,
+      fontWeight: 600,
+      textTransform: "uppercase",
+      letterSpacing: "0.06em"
+    }
+  }, "Stock objetivo"), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    value: editObj,
+    onChange: e => setEditObj(e.target.value),
+    style: inp,
+    min: "0",
+    placeholder: "0 = sin objetivo"
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      height: 8
+    }
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: saveEdit,
+    style: btn("#238636")
+  }, "\u2705 Guardar cambios"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setEditRef(null),
+    style: btn(surface2)
+  }, "Cancelar")));
+  if (loading) return /*#__PURE__*/React.createElement("div", {
+    style: {
+      minHeight: "100vh",
+      background: bg,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      flexDirection: "column",
+      gap: 16,
+      fontFamily: "system-ui,sans-serif"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 40
+    }
+  }, "\uD83D\uDCE6"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      color: textMuted,
+      fontSize: 14
+    }
+  }, "Cargando datos..."));
+
+  /* ═══ MAIN RENDER ═══ */
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      minHeight: "100vh",
+      background: bg,
+      color: textPrimary,
+      paddingBottom: 64,
+      fontFamily: "system-ui,sans-serif"
+    }
+  }, toast && /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: "fixed",
+      top: 60,
+      left: "50%",
+      transform: "translateX(-50%)",
+      background: toast.color,
+      color: "#fff",
+      borderRadius: 24,
+      padding: "10px 20px",
+      fontWeight: 700,
+      fontSize: 14,
+      zIndex: 300,
+      whiteSpace: "nowrap",
+      boxShadow: "0 4px 20px rgba(0,0,0,0.4)"
+    }
+  }, toast.msg), showHistory && /*#__PURE__*/React.createElement(HistoryModal, {
+    hist: hist,
+    onClose: () => setShowHistory(false)
+  }), syncing && /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: "fixed",
+      inset: 0,
+      background: "rgba(0,0,0,0.7)",
+      zIndex: 400,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      flexDirection: "column",
+      gap: 16
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 40
+    }
+  }, "\u23F3"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      color: "#fff",
+      fontSize: 15,
+      fontWeight: 600
+    }
+  }, "Guardando...")), tab === "home" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: surface,
+      padding: "14px 16px 12px",
+      borderBottom: "1px solid " + border,
+      position: "sticky",
+      top: 0,
+      zIndex: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "flex-start"
+    }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontWeight: 800,
+      fontSize: 18,
+      letterSpacing: "-0.02em"
+    }
+  }, "\uD83D\uDCE6 Stock Furgoneta"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: textMuted,
+      marginTop: 2
+    }
+  }, user.nombre, " \xB7 ", catalog.length, " referencias")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 6,
+      alignItems: "center"
+    }
+  }, lowRefs.length > 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "#3d0000",
+      border: "1px solid #6d0000",
+      borderRadius: 20,
+      padding: "4px 10px",
+      fontSize: 12,
+      fontWeight: 700,
+      color: red
+    }
+  }, "\u26A0\uFE0F ", lowRefs.length), /*#__PURE__*/React.createElement("button", {
+    onClick: onLogout,
+    style: {
+      background: "none",
+      border: "none",
+      color: textDim,
+      fontSize: 11,
+      cursor: "pointer"
+    }
+  }, "Salir")))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: "14px 16px"
+    }
+  }, lowRefs.length > 0 && /*#__PURE__*/React.createElement("div", {
+    style: Object.assign(card(true), {
+      borderColor: "#5a0000"
+    })
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontWeight: 700,
+      color: "#f87171",
+      marginBottom: 8,
+      fontSize: 13
+    }
+  }, "\u26A0\uFE0F STOCK BAJO \u2014 ", lowRefs.length, " referencias"), lowRefs.slice(0, 5).map(r => /*#__PURE__*/React.createElement("div", {
+    key: r.id,
+    onClick: () => openEdit(r),
+    style: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      padding: "7px 0",
+      borderBottom: "1px solid #2a0a0a",
+      cursor: "pointer"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      flex: 1,
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+      whiteSpace: "nowrap",
+      marginRight: 8
+    }
+  }, r.articulo), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      fontWeight: 700,
+      color: red,
+      whiteSpace: "nowrap"
+    }
+  }, getStock(r), /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: textDim,
+      fontWeight: 400
+    }
+  }, " / ", r.stock_minimo, " m\xEDn"))))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr",
+      gap: 10,
+      marginBottom: 12
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      setMode("entrada");
+      setTab("op");
+    },
+    style: {
+      background: "#0f2d1a",
+      border: "1px solid #1a4a2a",
+      borderRadius: 14,
+      padding: "20px 12px",
+      color: "#fff",
+      cursor: "pointer",
+      textAlign: "center"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 34
+    }
+  }, "\uD83D\uDCE5"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontWeight: 800,
+      fontSize: 14,
+      marginTop: 6,
+      color: green
+    }
+  }, "ENTRADA")), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      setMode("salida");
+      setTab("op");
+    },
+    style: {
+      background: "#2d0f0f",
+      border: "1px solid #4a1a1a",
+      borderRadius: 14,
+      padding: "20px 12px",
+      color: "#fff",
+      cursor: "pointer",
+      textAlign: "center"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 34
+    }
+  }, "\uD83D\uDCE4"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontWeight: 800,
+      fontSize: 14,
+      marginTop: 6,
+      color: red
+    }
+  }, "SALIDA"))), /*#__PURE__*/React.createElement("div", {
+    style: Object.assign(card(), {
+      padding: "0",
+      overflow: "hidden"
+    })
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr 1fr"
+    }
+  }, [{
+    value: allSerializedInStock.length,
+    label: "Equipos",
+    color: blue,
+    click: () => setShowEquipos(v => !v),
+    expand: true
+  }, {
+    value: catalog.filter(r => r.subtipo === "cantidad").reduce((s, r) => s + getStock(r), 0),
+    label: "Consumibles",
+    color: purple,
+    click: null
+  }, {
+    value: lowRefs.length,
+    label: "Alertas",
+    color: lowRefs.length > 0 ? red : green,
+    click: null
+  }].map((stat, i) => /*#__PURE__*/React.createElement("div", {
+    key: i,
+    onClick: stat.click || undefined,
+    style: {
+      borderRight: i < 2 ? "1px solid " + border : "none",
+      padding: "14px 8px",
+      textAlign: "center",
+      cursor: stat.click ? "pointer" : "default",
+      background: i === 0 && showEquipos ? "#1a2035" : undefined
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 26,
+      fontWeight: 800,
+      color: stat.color
+    }
+  }, stat.value), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10,
+      color: textDim,
+      textTransform: "uppercase",
+      letterSpacing: "0.06em",
+      marginTop: 2
+    }
+  }, stat.label, stat.expand ? showEquipos ? " ▲" : " ▼" : "")))), showEquipos && /*#__PURE__*/React.createElement("div", {
+    style: {
+      borderTop: "1px solid " + border,
+      maxHeight: 300,
+      overflowY: "auto"
+    }
+  }, allSerializedInStock.length === 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: 16,
+      textAlign: "center",
+      color: textDim,
+      fontSize: 13
+    }
+  }, "Sin equipos en stock"), allSerializedInStock.map((e, i) => /*#__PURE__*/React.createElement("div", {
+    key: i,
+    style: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      padding: "9px 14px",
+      borderBottom: "1px solid " + border
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      fontWeight: 600,
+      flex: 1,
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+      whiteSpace: "nowrap",
+      marginRight: 8
+    }
+  }, e.articulo), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      fontFamily: "monospace",
+      color: blue,
+      whiteSpace: "nowrap"
+    }
+  }, "#", e.serial))))))), tab === "op" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: surface,
+      padding: "14px 16px 12px",
+      borderBottom: "1px solid " + border,
+      position: "sticky",
+      top: 0,
+      zIndex: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8,
+      marginBottom: 10
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      setMode("entrada");
+      setSession([]);
+      setSelRef(null);
+    },
+    style: {
+      flex: 1,
+      padding: "11px",
+      border: "1px solid " + (mode === "entrada" ? "#1a4a2a" : border),
+      borderRadius: 9,
+      cursor: "pointer",
+      background: mode === "entrada" ? "#0f2d1a" : "transparent",
+      color: mode === "entrada" ? green : textMuted,
+      fontWeight: 700,
+      fontSize: 13
+    }
+  }, "\uD83D\uDCE5 ENTRADA"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      setMode("salida");
+      setSession([]);
+      setSelRef(null);
+    },
+    style: {
+      flex: 1,
+      padding: "11px",
+      border: "1px solid " + (mode === "salida" ? "#4a1a1a" : border),
+      borderRadius: 9,
+      cursor: "pointer",
+      background: mode === "salida" ? "#2d0f0f" : "transparent",
+      color: mode === "salida" ? red : textMuted,
+      fontWeight: 700,
+      fontSize: 13
+    }
+  }, "\uD83D\uDCE4 SALIDA"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowHistory(true),
+    style: {
+      padding: "11px 14px",
+      border: "1px solid " + border,
+      borderRadius: 9,
+      cursor: "pointer",
+      background: "transparent",
+      color: textMuted,
+      fontSize: 16
+    }
+  }, "\uD83D\uDCDC")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10,
+      color: textDim,
+      marginBottom: 4,
+      textTransform: "uppercase",
+      letterSpacing: "0.06em"
+    }
+  }, "Referencia activa"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowPicker(true),
+    style: {
+      width: "100%",
+      background: surface2,
+      border: "1px solid " + (selRef ? blue : border),
+      color: selRef ? textPrimary : textMuted,
+      borderRadius: 9,
+      padding: "11px 13px",
+      fontSize: 13,
+      textAlign: "left",
+      cursor: "pointer",
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+      whiteSpace: "nowrap",
+      boxSizing: "border-box"
+    }
+  }, selRef ? (selRef.codigo_sage ? "[" + selRef.codigo_sage + "] " : "") + selRef.articulo : "— Toca para seleccionar referencia —")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: "14px 16px"
+    }
+  }, !selRef ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: "center",
+      color: textMuted,
+      padding: "50px 20px"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 48,
+      marginBottom: 12
+    }
+  }, "\uD83D\uDC46"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontWeight: 600,
+      marginBottom: 6
+    }
+  }, "Selecciona una referencia")) : /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: Object.assign(card(), {
+      borderLeft: "3px solid " + (mode === "entrada" ? green : red)
+    })
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontWeight: 600,
+      fontSize: 13,
+      marginBottom: 6
+    }
+  }, selRef.articulo), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 6,
+      flexWrap: "wrap"
+    }
+  }, selRef.codigo_sage && /*#__PURE__*/React.createElement("span", {
+    style: chip(surface2, textMuted)
+  }, "#", selRef.codigo_sage), /*#__PURE__*/React.createElement("span", {
+    style: chip(selRef.subtipo === "serializado" ? "#1f3a5f" : "#3a1f5f", selRef.subtipo === "serializado" ? blue : purple)
+  }, selRef.subtipo === "serializado" ? "🔢 SERIE" : "📦 CANTIDAD"), /*#__PURE__*/React.createElement("span", {
+    style: chip(isLow(selRef) ? "#3d0000" : "#0f2d1a", isLow(selRef) ? red : green)
+  }, "Stock: ", getStock(selRef)))), /*#__PURE__*/React.createElement("div", {
+    style: Object.assign(card(), {
+      padding: "12px 14px"
+    })
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: textMuted,
+      marginBottom: 5,
+      fontWeight: 600,
+      textTransform: "uppercase",
+      letterSpacing: "0.06em"
+    }
+  }, mode === "entrada" ? "🏭 Origen" : "🚚 Destino"), /*#__PURE__*/React.createElement("input", {
+    value: origen,
+    onChange: e => setOrigen(e.target.value.slice(0, 30)),
+    maxLength: 30,
+    placeholder: mode === "entrada" ? "Almacen" : "Destino...",
+    style: Object.assign({}, inp, {
+      fontSize: 13
+    })
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10,
+      color: textDim,
+      marginTop: 4,
+      textAlign: "right"
+    }
+  }, origen.length, "/30")), selRef.subtipo === "serializado" ? /*#__PURE__*/React.createElement("div", {
+    style: card()
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: textMuted,
+      marginBottom: 8,
+      textTransform: "uppercase",
+      letterSpacing: "0.06em",
+      fontWeight: 600
+    }
+  }, "Escanear n\xFAmero de serie"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8,
+      marginBottom: 10
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    ref: btRef,
+    value: btVal,
+    onChange: e => setBtVal(e.target.value),
+    onKeyDown: e => {
+      if (e.key === "Enter") {
+        onScan(btVal);
+        setBtVal("");
+      }
+    },
+    placeholder: "Pistola BT o escribe aqu\xED + Enter...",
+    style: Object.assign({}, inp, {
+      flex: 1
+    })
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      onScan(btVal);
+      setBtVal("");
+    },
+    style: Object.assign(btnSm(surface2), {
+      padding: "10px 14px",
+      border: "1px solid " + border
+    })
+  }, "\u21A9")), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowCam(true),
+    style: btn("#1f3a5f", {
+      marginBottom: 0
+    })
+  }, "\uD83D\uDCF8 Abrir c\xE1mara \u2014 escaneo continuo")) : /*#__PURE__*/React.createElement("div", {
+    style: card()
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: textMuted,
+      marginBottom: 8,
+      textTransform: "uppercase",
+      letterSpacing: "0.06em",
+      fontWeight: 600
+    }
+  }, "Cantidad a ", mode === "entrada" ? "añadir" : "retirar"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8,
+      alignItems: "center",
+      marginBottom: 10
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setQty(q => Math.max(1, q - 1)),
+    style: Object.assign(btnSm(surface2), {
+      width: 46,
+      height: 46,
+      fontSize: 22,
+      textAlign: "center",
+      padding: 0,
+      flexShrink: 0,
+      border: "1px solid " + border,
+      borderRadius: 9
+    })
+  }, "\u2212"), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    value: qty,
+    onChange: e => setQty(Math.max(1, parseInt(e.target.value) || 1)),
+    style: Object.assign({}, inp, {
+      textAlign: "center",
+      flex: 1,
+      fontSize: 20,
+      fontWeight: 700
+    }),
+    min: "1"
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setQty(q => q + 1),
+    style: Object.assign(btnSm(surface2), {
+      width: 46,
+      height: 46,
+      fontSize: 22,
+      textAlign: "center",
+      padding: 0,
+      flexShrink: 0,
+      border: "1px solid " + border,
+      borderRadius: 9
+    })
+  }, "+")), /*#__PURE__*/React.createElement("button", {
+    onClick: addConsumable,
+    style: btn(mode === "entrada" ? "#1a4a1a" : "#4a1a1a", {
+      marginBottom: 0
+    })
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: mode === "entrada" ? green : red
+    }
+  }, mode === "entrada" ? "+ Añadir " + qty + " uds" : "− Retirar " + qty + " uds"))), session.length > 0 && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: card()
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontWeight: 700,
+      fontSize: 13
+    }
+  }, mode === "entrada" ? "📥" : "📤", " Sesi\xF3n \u2014 ", /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: mode === "entrada" ? green : red
+    }
+  }, session.length), " elemento", session.length !== 1 ? "s" : ""), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setSession([]),
+    style: Object.assign(btnSm("#3d0000"), {
+      padding: "5px 10px",
+      border: "1px solid #5a0000",
+      fontSize: 12
+    })
+  }, "\uD83D\uDDD1")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      maxHeight: 200,
+      overflowY: "auto"
+    }
+  }, session.map((item, idx) => /*#__PURE__*/React.createElement("div", {
+    key: item.id,
+    style: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      padding: "8px 0",
+      borderBottom: "1px solid " + border
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      minWidth: 0
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      fontWeight: 600,
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+      whiteSpace: "nowrap"
+    }
+  }, item.articulo.slice(0, 30)), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 6,
+      marginTop: 2
+    }
+  }, item.serial && /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11,
+      color: blue,
+      fontFamily: "monospace"
+    }
+  }, "#", item.serial), item.cantidad && /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11,
+      color: purple
+    }
+  }, item.cantidad, " uds"), origen && /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10,
+      color: textDim,
+      background: surface2,
+      borderRadius: 3,
+      padding: "0 5px"
+    }
+  }, origen))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 14,
+      flexShrink: 0,
+      marginLeft: 12,
+      alignItems: "center"
+    }
+  }, item.serial && /*#__PURE__*/React.createElement("button", {
+    onClick: () => navigator.clipboard && navigator.clipboard.writeText(item.serial).then(() => showToast("📋 Copiado", "#58a6ff")),
+    style: {
+      background: "#1f3a5f",
+      color: "#58a6ff",
+      border: "1px solid #2a4a6a",
+      borderRadius: 7,
+      padding: "6px 14px",
+      fontSize: 12,
+      fontWeight: 700,
+      cursor: "pointer",
+      letterSpacing: "0.05em"
+    }
+  }, "COPIAR"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setSession(p => p.filter((_, i) => i !== idx)),
+    style: Object.assign(btnSm("#3d0000"), {
+      padding: "6px 12px",
+      border: "1px solid #5a0000",
+      fontSize: 13,
+      borderRadius: 7
+    })
+  }, "\u2715")))))), /*#__PURE__*/React.createElement("button", {
+    onClick: confirmSession,
+    style: btn(mode === "entrada" ? "#238636" : "#b91c1c", {
+      padding: "15px",
+      fontSize: 15
+    })
+  }, "\u2705 CONFIRMAR ", mode === "entrada" ? "ENTRADA" : "SALIDA", " (", session.length, ")")))), showCam && /*#__PURE__*/React.createElement(CamScanner, {
+    onScan: onScan,
+    onClose: () => {
+      setShowCam(false);
+      setTimeout(() => btRef.current && btRef.current.focus(), 200);
+    }
+  }), showPicker && /*#__PURE__*/React.createElement(RefPicker, {
+    catalog: catalog,
+    getStock: getStock,
+    isLow: isLow,
+    onSelect: r => {
+      setSelRef(r);
+      setSession([]);
+      setQty(1);
+    },
+    onClose: () => setShowPicker(false)
+  })), tab === "catalog" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: surface,
+      padding: "14px 16px 12px",
+      borderBottom: "1px solid " + border,
+      position: "sticky",
+      top: 0,
+      zIndex: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontWeight: 700,
+      fontSize: 16,
+      marginBottom: 10
+    }
+  }, "\uD83D\uDCCB Cat\xE1logo"), /*#__PURE__*/React.createElement("input", {
+    value: search,
+    onChange: e => setSearch(e.target.value),
+    placeholder: "\uD83D\uDD0D Buscar art\xEDculo o c\xF3digo Sage...",
+    style: inp
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: "12px 16px"
+    }
+  }, filtCatalog.map(r => {
+    const isExpanded = expandedSerials.has(r.id);
+    const sers = seriales[r.id] || [];
+    return /*#__PURE__*/React.createElement("div", {
+      key: r.id,
+      style: {
+        marginBottom: 10
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      onClick: () => r.subtipo === "serializado" ? toggleSerialExpand(r.id) : openEdit(r),
+      style: Object.assign(card(isLow(r)), {
+        cursor: "pointer",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: 0,
+        borderRadius: isExpanded ? "12px 12px 0 0" : 12
+      })
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        flex: 1,
+        minWidth: 0,
+        marginRight: 10
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 13,
+        fontWeight: 600,
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        whiteSpace: "nowrap"
+      }
+    }, r.articulo), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        gap: 5,
+        marginTop: 5,
+        flexWrap: "wrap"
+      }
+    }, r.codigo_sage && /*#__PURE__*/React.createElement("span", {
+      style: chip(surface2, textMuted)
+    }, "#", r.codigo_sage), /*#__PURE__*/React.createElement("span", {
+      style: chip(r.subtipo === "serializado" ? "#1f3a5f" : "#3a1f5f", r.subtipo === "serializado" ? blue : purple)
+    }, r.subtipo === "serializado" ? "🔢" : "📦", " ", r.subtipo === "serializado" ? "Serie" : "Cant."), r.stock_minimo > 0 && /*#__PURE__*/React.createElement("span", {
+      style: chip("#2d1f00", amber)
+    }, "\u25B8", r.stock_minimo, " m\xEDn"), r.stock_objetivo > 0 && /*#__PURE__*/React.createElement("span", {
+      style: chip("#0d1f3d", "#7dd3fc")
+    }, "\u25B8", r.stock_objetivo, " obj"))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        flexShrink: 0
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        textAlign: "right"
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 24,
+        fontWeight: 800,
+        color: isLow(r) ? red : green
+      }
+    }, getStock(r)), r.stock_objetivo > 0 && /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 10,
+        color: textDim
+      }
+    }, "/ ", r.stock_objetivo)), r.subtipo === "serializado" ? /*#__PURE__*/React.createElement("div", {
+      style: {
+        color: textDim,
+        fontSize: 14
+      }
+    }, isExpanded ? "▲" : "▼") : /*#__PURE__*/React.createElement("button", {
+      onClick: e => {
+        e.stopPropagation();
+        openEdit(r);
+      },
+      style: Object.assign(btnSm(surface2), {
+        padding: "5px 10px",
+        border: "1px solid " + border,
+        fontSize: 11
+      })
+    }, "\u2699\uFE0F"))), r.subtipo === "serializado" && isExpanded && /*#__PURE__*/React.createElement("div", {
+      style: {
+        border: "1px solid " + border,
+        borderTop: "none",
+        borderRadius: "0 0 12px 12px",
+        background: surface2,
+        overflow: "hidden"
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        padding: "8px 14px",
+        borderBottom: "1px solid " + border,
+        background: "#1a1f2a"
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 11,
+        color: textMuted,
+        fontWeight: 600,
+        textTransform: "uppercase",
+        letterSpacing: "0.05em"
+      }
+    }, "Unidades en stock (", sers.length, ")"), /*#__PURE__*/React.createElement("button", {
+      onClick: e => {
+        e.stopPropagation();
+        openEdit(r);
+      },
+      style: Object.assign(btnSm(surface2), {
+        padding: "4px 10px",
+        border: "1px solid " + border,
+        fontSize: 11
+      })
+    }, "\u2699\uFE0F Config")), sers.length === 0 ? /*#__PURE__*/React.createElement("div", {
+      style: {
+        padding: "14px",
+        textAlign: "center",
+        color: textDim,
+        fontSize: 12
+      }
+    }, "Sin unidades en stock") : sers.map((s, i) => /*#__PURE__*/React.createElement("div", {
+      key: i,
+      style: {
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        padding: "9px 14px",
+        borderBottom: i < sers.length - 1 ? "1px solid " + border : "none"
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontFamily: "monospace",
+        fontSize: 13,
+        color: blue
+      }
+    }, "#", s.numero_serie), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 10,
+        color: textDim
+      }
+    }, s.fecha_entrada ? new Date(s.fecha_entrada).toLocaleDateString("es-ES", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "2-digit"
+    }) : "")))));
+  }))), tab === "order" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: surface,
+      padding: "14px 16px 12px",
+      borderBottom: "1px solid " + border,
+      position: "sticky",
+      top: 0,
+      zIndex: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontWeight: 800,
+      fontSize: 17,
+      marginBottom: 2
+    }
+  }, "\uD83D\uDED2 Hacer pedido"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: textMuted
+    }
+  }, "Referencias por debajo del stock objetivo")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: "14px 16px"
+    }
+  }, orderItems.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: "center",
+      color: textMuted,
+      padding: "50px 20px"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 48,
+      marginBottom: 12
+    }
+  }, "\u2705"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontWeight: 600
+    }
+  }, "Todo en orden")) : /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: Object.assign(card(), {
+      background: "#1a2d1a",
+      borderColor: "#2a4a2a",
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 14
+    })
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontWeight: 700,
+      fontSize: 15,
+      color: green
+    }
+  }, orderItems.length, " referencias"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: textMuted,
+      marginTop: 2
+    }
+  }, orderItems.reduce((s, r) => s + (r.stock_objetivo - getStock(r)), 0), " uds totales a pedir"))), orderItems.map(r => {
+    const actual = getStock(r),
+      necesario = r.stock_objetivo - actual,
+      pct = Math.round(actual / r.stock_objetivo * 100);
+    return /*#__PURE__*/React.createElement("div", {
+      key: r.id,
+      style: card(isLow(r))
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "flex-start",
+        marginBottom: 8
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        flex: 1,
+        minWidth: 0,
+        marginRight: 10
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 13,
+        fontWeight: 600,
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        whiteSpace: "nowrap"
+      }
+    }, r.articulo), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        gap: 5,
+        marginTop: 4
+      }
+    }, r.codigo_sage && /*#__PURE__*/React.createElement("span", {
+      style: chip(surface2, textMuted)
+    }, "#", r.codigo_sage))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        textAlign: "right",
+        flexShrink: 0
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 22,
+        fontWeight: 800,
+        color: red
+      }
+    }, "+", necesario), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 10,
+        color: textDim
+      }
+    }, "a pedir"))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        alignItems: "center",
+        gap: 8
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        flex: 1,
+        height: 6,
+        background: border,
+        borderRadius: 3,
+        overflow: "hidden"
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        width: pct + "%",
+        height: "100%",
+        background: isLow(r) ? red : amber,
+        borderRadius: 3
+      }
+    })), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 11,
+        color: textMuted,
+        whiteSpace: "nowrap",
+        minWidth: 60,
+        textAlign: "right"
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: isLow(r) ? red : amber,
+        fontWeight: 700
+      }
+    }, actual), /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: textDim
+      }
+    }, " / ", r.stock_objetivo))));
+  })))), tab === "settings" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: surface,
+      padding: "14px 16px",
+      borderBottom: "1px solid " + border
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontWeight: 700,
+      fontSize: 16
+    }
+  }, "\u2699\uFE0F Ajustes")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: "14px 16px"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: card()
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontWeight: 700,
+      marginBottom: 10,
+      fontSize: 13,
+      textTransform: "uppercase",
+      letterSpacing: "0.05em",
+      color: textMuted
+    }
+  }, "\uD83D\uDC64 Mi cuenta"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      color: textMuted,
+      lineHeight: 2
+    }
+  }, /*#__PURE__*/React.createElement("div", null, "\uD83D\uDC64 ", /*#__PURE__*/React.createElement("strong", {
+    style: {
+      color: textPrimary
+    }
+  }, user.nombre)), /*#__PURE__*/React.createElement("div", null, "\uD83D\uDCE7 ", /*#__PURE__*/React.createElement("strong", {
+    style: {
+      color: textPrimary
+    }
+  }, user.email)), /*#__PURE__*/React.createElement("div", null, "\uD83C\uDFE2 ", /*#__PURE__*/React.createElement("strong", {
+    style: {
+      color: textPrimary
+    }
+  }, user.empresas?.nombre || "—")))), /*#__PURE__*/React.createElement("div", {
+    style: card()
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontWeight: 700,
+      marginBottom: 10,
+      fontSize: 13,
+      textTransform: "uppercase",
+      letterSpacing: "0.05em",
+      color: textMuted
+    }
+  }, "\u2139\uFE0F Estado"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      color: textMuted,
+      lineHeight: 2
+    }
+  }, /*#__PURE__*/React.createElement("div", null, "\uD83D\uDDC2 ", /*#__PURE__*/React.createElement("strong", {
+    style: {
+      color: textPrimary
+    }
+  }, catalog.length), " referencias"), /*#__PURE__*/React.createElement("div", null, "\uD83D\uDD22 ", /*#__PURE__*/React.createElement("strong", {
+    style: {
+      color: blue
+    }
+  }, allSerializedInStock.length), " equipos en stock"), /*#__PURE__*/React.createElement("div", null, "\u26A0\uFE0F ", /*#__PURE__*/React.createElement("strong", {
+    style: {
+      color: lowRefs.length > 0 ? red : green
+    }
+  }, lowRefs.length), " alertas de stock"), /*#__PURE__*/React.createElement("div", null, "\uD83D\uDCDC ", /*#__PURE__*/React.createElement("strong", {
+    style: {
+      color: textPrimary
+    }
+  }, hist.length), " movimientos en historial")), /*#__PURE__*/React.createElement("button", {
+    onClick: loadData,
+    style: btn("#1f3a5f", {
+      marginTop: 10,
+      marginBottom: 0
+    })
+  }, "\uD83D\uDD04 Recargar datos")), /*#__PURE__*/React.createElement("div", {
+    style: Object.assign(card(), {
+      borderColor: "#3d0000"
+    })
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontWeight: 700,
+      marginBottom: 8,
+      fontSize: 13,
+      color: red
+    }
+  }, "Cerrar sesi\xF3n"), /*#__PURE__*/React.createElement("button", {
+    onClick: onLogout,
+    style: btn("#3d0000", {
+      marginBottom: 0,
+      border: "1px solid #5a0000"
+    })
+  }, "\uD83D\uDEAA Cerrar sesi\xF3n")))), /*#__PURE__*/React.createElement("nav", {
+    style: {
+      position: "fixed",
+      bottom: 0,
+      left: 0,
+      right: 0,
+      background: surface,
+      borderTop: "1px solid " + border,
+      display: "flex",
+      zIndex: 20
+    }
+  }, [{
+    id: "home",
+    icon: lowRefs.length > 0 ? "🔴" : "🏠",
+    label: "Inicio",
+    badge: 0
+  }, {
+    id: "op",
+    icon: "🔄",
+    label: "Operación",
+    badge: 0
+  }, {
+    id: "catalog",
+    icon: "📋",
+    label: "Catálogo",
+    badge: 0
+  }, {
+    id: "order",
+    icon: "🛒",
+    label: "Pedido",
+    badge: orderCount
+  }, {
+    id: "settings",
+    icon: "⚙️",
+    label: "Ajustes",
+    badge: 0
+  }].map(item => /*#__PURE__*/React.createElement("button", {
+    key: item.id,
+    onClick: () => {
+      setTab(item.id);
+      setSearch("");
+    },
+    style: {
+      flex: 1,
+      padding: "10px 2px 12px",
+      background: "transparent",
+      border: "none",
+      color: tab === item.id ? blue : textDim,
+      cursor: "pointer",
+      fontSize: 10,
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      gap: 3,
+      position: "relative"
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 18
+    }
+  }, item.icon), item.badge > 0 && /*#__PURE__*/React.createElement("span", {
+    style: {
+      position: "absolute",
+      top: 6,
+      right: "50%",
+      transform: "translateX(8px)",
+      background: amber,
+      color: "#000",
+      borderRadius: 10,
+      padding: "0 5px",
+      fontSize: 9,
+      fontWeight: 800,
+      minWidth: 16,
+      textAlign: "center"
+    }
+  }, item.badge), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontWeight: tab === item.id ? 700 : 400
+    }
+  }, item.label)))));
+}
+
+/* ═══ ROOT APP ═══ */
+function App() {
+  const [user, setUser] = useState(() => loadSession());
+  const handleLogin = u => {
+    saveSession(u);
+    setUser(u);
+  };
+  const handleLogout = () => {
+    clearSession();
+    setUser(null);
+  };
+  if (!user) return /*#__PURE__*/React.createElement(LoginScreen, {
+    onLogin: handleLogin
+  });
+  if (user.rol === "admin") return /*#__PURE__*/React.createElement(AdminPanel, {
+    user: user,
+    onLogout: handleLogout
+  });
+  return /*#__PURE__*/React.createElement(TecnicoApp, {
+    user: user,
+    onLogout: handleLogout
+  });
+}
+ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
+
+</script>
+
+</body></html>
